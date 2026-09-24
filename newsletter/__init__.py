@@ -1,0 +1,1 @@
+"""Newsletter subscriber management."""

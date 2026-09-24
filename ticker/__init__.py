@@ -1,0 +1,1 @@
+"""Short-form transfer news ticker."""
