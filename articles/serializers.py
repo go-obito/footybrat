@@ -27,11 +27,19 @@ _AI_ARTIFACT_PATTERNS = (
 def _clean_article_markdown(raw_body: str) -> str:
     if not raw_body:
         return ""
-    cleaned = raw_body.strip()
+
+    cleaned = raw_body.replace("\r\n", "\n").replace("\r", "\n").strip()
     for pattern in _AI_ARTIFACT_PATTERNS:
         cleaned = pattern.sub(" ", cleaned)
+
+    lines = []
+    for line in cleaned.split("\n"):
+        normalized = re.sub(r"[ \t]{2,}", " ", line).strip()
+        if normalized:
+            lines.append(normalized)
+    cleaned = "\n\n".join(lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"(?m)^[ \t]+$", "", cleaned)
     return cleaned.strip()
 
 
@@ -42,6 +50,7 @@ def render_article_body(raw_body: str) -> str:
     html = markdown.markdown(
         cleaned,
         extensions=["extra", "sane_lists", "tables", "fenced_code"],
+        output_format="html5",
     )
     return bleach.clean(
         html,
