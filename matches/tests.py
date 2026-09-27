@@ -332,3 +332,32 @@ class ApiRequestBudgetTests(SimpleTestCase):
             self.assertEqual(api_football.fetch_live_fixtures([39, 2, 6]), [])
 
         request.assert_called_once_with("fixtures", category="live", live="2-6-39")
+
+
+    def test_public_fixture_api_supports_status_and_league_filters(self):
+        live = Fixture.objects.create(
+            league=self.league,
+            home_team=self.home_team,
+            away_team=self.away_team,
+            external_id=300,
+            kickoff_at=timezone.now(),
+            status=Fixture.Status.LIVE,
+            minute=64,
+            home_score=2,
+            away_score=1,
+        )
+        response = self.client.get("/api/fixtures/?status=live&league=premier-league")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["external_id"] for item in response.json()["results"]], [live.external_id])
+
+    def test_public_standings_api_supports_league_filter(self):
+        Standing.objects.create(
+            league=self.league,
+            team=self.home_team,
+            position=1,
+            season="2026",
+            points=12,
+        )
+        response = self.client.get("/api/standings/?league=premier-league")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"][0]["league"]["slug"], "premier-league")
