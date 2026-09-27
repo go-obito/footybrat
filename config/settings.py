@@ -187,6 +187,13 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL"),
+    }
+}
+
 API_FOOTBALL_KEY = env("API_FOOTBALL_KEY", default="")
 API_FOOTBALL_BASE_URL = env(
     "API_FOOTBALL_BASE_URL",
