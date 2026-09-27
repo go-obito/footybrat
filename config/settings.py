@@ -10,9 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+from datetime import date
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +40,9 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    'daphne',
+    'channels',
+    'config.apps.ProjectAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -83,6 +87,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 
 # Database
@@ -134,10 +139,17 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
 
 REDIS_URL = env("REDIS_URL", default="redis://127.0.0.1:6379/0")
+REDIS_CHANNEL_URL = env("REDIS_CHANNEL_URL", default="redis://127.0.0.1:6379/2")
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": env("REDIS_CACHE_URL", default="redis://127.0.0.1:6379/1"),
+    },
+}
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [REDIS_CHANNEL_URL]},
     },
 }
 
@@ -153,17 +165,17 @@ CELERY_BEAT_SCHEDULE = {
         "task": "articles.tasks.cleanup_old_article_views",
         "schedule": 86400.0,
     },
-    "sync-fixtures": {
-        "task": "matches.tasks.sync_fixtures_task",
-        "schedule": 1800.0,
+    "sync-daily-fixtures": {
+        "task": "matches.tasks.sync_daily_fixtures_task",
+        "schedule": crontab(hour=6, minute=0),
     },
     "sync-live-scores": {
         "task": "matches.tasks.sync_live_scores_task",
-        "schedule": 30.0,
+        "schedule": 60.0,
     },
     "sync-standings": {
         "task": "matches.tasks.sync_standings_task",
-        "schedule": 900.0,
+        "schedule": crontab(hour=6, minute=30),
     },
 }
 
@@ -172,7 +184,18 @@ API_FOOTBALL_BASE_URL = env(
     "API_FOOTBALL_BASE_URL",
     default="https://v3.football.api-sports.io",
 )
-TRACKED_LEAGUES = env.list("TRACKED_LEAGUES", default=[])
+TRACKED_LEAGUES = env.list(
+    "TRACKED_LEAGUES",
+    default=["39", "2", "3", "848", "6", "78", "140", "135", "61"],
+)
+SEASONAL_LEAGUES = {
+    6: [
+        (date(2025, 12, 21), date(2026, 1, 18)),
+        (date(2027, 6, 19), date(2027, 7, 17)),
+    ],
+}
+DAILY_REQUEST_BUDGET = env.int("DAILY_REQUEST_BUDGET", default=100)
+DAILY_REQUEST_HEADROOM = env.int("DAILY_REQUEST_HEADROOM", default=10)
 
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",

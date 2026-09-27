@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .models import Article, ArticleView
 from .serializers import ArticleHeadlineSerializer
+from matches.realtime import publish_content_update
 
 TRENDING_CACHE_KEY = "trending_articles"
 
@@ -30,6 +31,7 @@ def get_trending_payload():
 def recompute_trending():
     payload = get_trending_payload()
     cache.set(TRENDING_CACHE_KEY, payload, timeout=60 * 60)
+    publish_content_update("trending")
     return len(payload)
 
 

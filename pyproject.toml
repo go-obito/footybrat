@@ -15,4 +15,6 @@ dependencies = [
     "requests>=2.32,<3.0",
     "psycopg[binary]>=3.2,<4.0",
     "gunicorn>=23.0,<24.0",
+    "channels[daphne]>=4.2,<5",
+    "channels-redis>=4.2,<5",
 ]

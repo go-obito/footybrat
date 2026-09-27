@@ -1,16 +1,108 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
+from django.utils import timezone
 
 
 class ApiFootballError(Exception):
     pass
 
 
-def _request(endpoint, **params):
+class RequestBudgetExceeded(ApiFootballError):
+    pass
+
+
+def _request_counter_key(category=None, today=None):
+    key = f"api_requests_today:{(today or timezone.localdate()).isoformat()}"
+    return f"{key}:{category}" if category else key
+
+
+def _legacy_request_counter_key(today=None):
+    return f"api_football_requests:{(today or timezone.localdate()).isoformat()}"
+
+
+def _request_counter_timeout():
+    now = timezone.localtime()
+    next_midnight = timezone.make_aware(
+        datetime.combine(now.date() + timedelta(days=1), time.min),
+        timezone.get_current_timezone(),
+    )
+    return max(1, int((next_midnight - now).total_seconds()))
+
+
+def _soft_request_limit():
+    return max(0, settings.DAILY_REQUEST_BUDGET - settings.DAILY_REQUEST_HEADROOM)
+
+
+def get_requests_used_today(category=None):
+    try:
+        value = cache.get(_request_counter_key(category), None)
+        if value is None:
+            value = cache.get(_legacy_request_counter_key(), 0) if category is None else 0
+        return int(value)
+    except Exception:
+        return None
+
+
+def can_make_request(cost=1):
+    if cost < 0:
+        return False
+    used = get_requests_used_today()
+    return used is not None and used + cost <= _soft_request_limit()
+
+
+def get_live_poll_budget(active_league_count):
+    used = get_requests_used_today()
+    fixtures_used = get_requests_used_today("fixtures")
+    standings_used = get_requests_used_today("standings")
+    if used is None or fixtures_used is None or standings_used is None:
+        return 0
+
+    reserved_daily_syncs = max(0, 2 * active_league_count - fixtures_used - standings_used)
+    return max(0, _soft_request_limit() - used - reserved_daily_syncs)
+
+
+def _record_api_request(category):
+    total_key = _request_counter_key()
+    category_key = _request_counter_key(category)
+    timeout = _request_counter_timeout()
+    initial_total = get_requests_used_today()
+    if initial_total is None:
+        return False
+    total_incremented = False
+    try:
+        cache.add(total_key, initial_total, timeout=timeout)
+        cache.add(category_key, 0, timeout=timeout)
+        total = cache.incr(total_key)
+        total_incremented = True
+        if total > _soft_request_limit():
+            cache.decr(total_key)
+            return False
+        cache.incr(category_key)
+    except Exception:
+        try:
+            if total_incremented:
+                cache.decr(total_key)
+        except Exception:
+            pass
+        return False
+    return True
+
+
+def _request(endpoint, *, category="other", **params):
     if not settings.API_FOOTBALL_KEY:
         raise ApiFootballError("API_FOOTBALL_KEY is not configured")
+
+    if not _record_api_request(category):
+        raise RequestBudgetExceeded("Daily API-Football request budget exhausted")
+    if category == "live":
+        cache.set(
+            "api_live_last_request_at",
+            timezone.now().timestamp(),
+            timeout=_request_counter_timeout(),
+        )
 
     try:
         response = requests.get(
@@ -78,26 +170,30 @@ def _fixture(item):
     }
 
 
-def fetch_fixtures(league_id, season):
-    today = date.today()
+def fetch_fixtures(league_id, match_date):
     response = _request(
         "fixtures",
+        category="fixtures",
         league=league_id,
-        season=season,
-        **{
-            "from": (today - timedelta(days=30)).isoformat(),
-            "to": (today + timedelta(days=60)).isoformat(),
-        },
+        date=match_date.isoformat(),
     )
     return [_fixture(item) for item in response]
 
 
-def fetch_live_fixtures():
-    return [_fixture(item) for item in _request("fixtures", live="all")]
+def fetch_live_fixtures(league_ids):
+    selected_leagues = sorted({int(league_id) for league_id in league_ids})
+    if not selected_leagues:
+        return []
+    response = _request(
+        "fixtures",
+        category="live",
+        live="-".join(str(league_id) for league_id in selected_leagues),
+    )
+    return [_fixture(item) for item in response]
 
 
 def fetch_standings(league_id, season):
-    response = _request("standings", league=league_id, season=season)
+    response = _request("standings", category="standings", league=league_id, season=season)
     rows = []
     for group in response:
         league = group.get("league", {})

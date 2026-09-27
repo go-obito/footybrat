@@ -6,7 +6,7 @@ services:
 
   web:
     build: .
-    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     volumes:
       - .:/app
     ports:
@@ -17,9 +17,12 @@ services:
       ALLOWED_HOSTS: localhost,127.0.0.1
       DATABASE_URL: sqlite:////app/db.sqlite3
       REDIS_URL: redis://redis:6379/0
+      REDIS_CHANNEL_URL: redis://redis:6379/2
       REDIS_CACHE_URL: redis://redis:6379/1
       API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
-      TRACKED_LEAGUES: ${TRACKED_LEAGUES:-}
+      TRACKED_LEAGUES: ${TRACKED_LEAGUES:-39,2,3,848,6,78,140,135,61}
+      DAILY_REQUEST_BUDGET: ${DAILY_REQUEST_BUDGET:-100}
+      DAILY_REQUEST_HEADROOM: ${DAILY_REQUEST_HEADROOM:-10}
     depends_on:
       - redis
 
@@ -33,9 +36,12 @@ services:
       DEBUG: "True"
       DATABASE_URL: sqlite:////app/db.sqlite3
       REDIS_URL: redis://redis:6379/0
+      REDIS_CHANNEL_URL: redis://redis:6379/2
       REDIS_CACHE_URL: redis://redis:6379/1
       API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
-      TRACKED_LEAGUES: ${TRACKED_LEAGUES:-}
+      TRACKED_LEAGUES: ${TRACKED_LEAGUES:-39,2,3,848,6,78,140,135,61}
+      DAILY_REQUEST_BUDGET: ${DAILY_REQUEST_BUDGET:-100}
+      DAILY_REQUEST_HEADROOM: ${DAILY_REQUEST_HEADROOM:-10}
     depends_on:
       - redis
 
@@ -51,6 +57,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       REDIS_CACHE_URL: redis://redis:6379/1
       API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
-      TRACKED_LEAGUES: ${TRACKED_LEAGUES:-}
+      TRACKED_LEAGUES: ${TRACKED_LEAGUES:-39,2,3,848,6,78,140,135,61}
+      DAILY_REQUEST_BUDGET: ${DAILY_REQUEST_BUDGET:-100}
+      DAILY_REQUEST_HEADROOM: ${DAILY_REQUEST_HEADROOM:-10}
     depends_on:
       - redis

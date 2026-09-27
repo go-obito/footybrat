@@ -1,0 +1,14 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<div class="module">
+  <h2>API-Football request budget</h2>
+  {% if api_requests_used is None %}
+    <p>Usage unavailable because the Redis counter could not be read.</p>
+  {% else %}
+    <p><strong>{{ api_requests_used }} / {{ api_request_budget }}</strong> requests used today.</p>
+    <p>Automatic sync pauses at {{ api_request_soft_limit }} to preserve headroom.</p>
+  {% endif %}
+</div>
+{{ block.super }}
+{% endblock %}
