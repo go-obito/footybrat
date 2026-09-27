@@ -170,11 +170,12 @@ def _fixture(item):
     }
 
 
-def fetch_fixtures(league_id, match_date):
+def fetch_fixtures(league_id, match_date, season):
     response = _request(
         "fixtures",
         category="fixtures",
         league=league_id,
+        season=season,
         date=match_date.isoformat(),
     )
     return [_fixture(item) for item in response]
