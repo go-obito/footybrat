@@ -131,7 +131,11 @@ def sync_daily_fixtures_task():
         try:
             items.extend(
                 item
-                for item in api_football.fetch_fixtures(league_id, today)
+                for item in api_football.fetch_fixtures(
+                    league_id,
+                    today,
+                    season=_current_season(league_id, today),
+                )
                 if int(item["league"]["external_id"]) == league_id
             )
         except api_football.ApiFootballError as exc:
