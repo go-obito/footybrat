@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from rest_framework import viewsets
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 
@@ -7,6 +8,21 @@ from .serializers import TickerEntrySerializer
 
 TICKER_CACHE_KEY = "ticker_entries_page_1"
 TICKER_CACHE_TIMEOUT = 25
+
+
+class TickerEntryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public ticker data comes only from FootyBrat's database.
+    """
+
+    serializer_class = TickerEntrySerializer
+    queryset = TickerEntry.objects.select_related("article").filter(is_live=True).order_by(
+        "-posted_at"
+    )
+
+    def get_queryset(self):
+        # Never call API-Football here; Celery is the only API-Football caller.
+        return super().get_queryset()
 
 
 class TickerEntryListView(ListAPIView):

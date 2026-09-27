@@ -23,17 +23,36 @@ class FixtureSerializer(serializers.ModelSerializer):
     class Meta:
         model = Fixture
         fields = (
-            "external_id", "league", "home_team", "away_team", "kickoff_at",
-            "status", "minute", "home_score", "away_score", "matchday", "updated_at",
+            "external_id",
+            "league",
+            "home_team",
+            "away_team",
+            "kickoff_at",
+            "status",
+            "minute",
+            "home_score",
+            "away_score",
+            "matchday",
+            "updated_at",
         )
 
 
 class StandingSerializer(serializers.ModelSerializer):
+    league = LeagueSerializer(read_only=True)
     team = TeamSerializer(read_only=True)
 
     class Meta:
         model = Standing
         fields = (
-            "position", "team", "played", "won", "drawn", "lost", "points",
-            "goal_difference", "season", "updated_at",
+            "league",
+            "position",
+            "team",
+            "played",
+            "won",
+            "drawn",
+            "lost",
+            "points",
+            "goal_difference",
+            "season",
+            "updated_at",
         )

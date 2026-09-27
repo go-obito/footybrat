@@ -1,19 +1,102 @@
 from datetime import timedelta
 
 from django.core.cache import cache
+from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.utils import timezone
-from django.utils import timezone
+from rest_framework import viewsets
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 
 from .leagues import get_active_tracked_leagues
-from .models import Fixture, Standing
+from .models import Fixture, League, Standing, Team
 from .realtime import LIVE_FIXTURES_CACHE_KEY
-from .serializers import FixtureSerializer, StandingSerializer
+from .serializers import (
+    FixtureSerializer,
+    LeagueSerializer,
+    StandingSerializer,
+    TeamSerializer,
+)
 
 LIVE_CACHE_TIMEOUT = 10
 STANDINGS_CACHE_TIMEOUT = 300
+
+
+class FixtureViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public fixture data comes only from FootyBrat's database.
+
+    This endpoint never calls API-Football; Celery is the only API-Football caller.
+    """
+
+    queryset = Fixture.objects.select_related("home_team", "away_team", "league").all()
+    serializer_class = FixtureSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_value = self.request.query_params.get("status")
+        league_slug = self.request.query_params.get("league")
+        date_value = self.request.query_params.get("date")
+
+        if status_value:
+            queryset = queryset.filter(status__iexact=status_value)
+        if league_slug:
+            queryset = queryset.filter(league__slug=league_slug)
+
+        if date_value and date_value.lower() == "today":
+            queryset = queryset.filter(kickoff_at__date=timezone.localdate())
+        elif date_value:
+            parsed_date = parse_date(date_value)
+            if parsed_date:
+                queryset = queryset.filter(kickoff_at__date=parsed_date)
+
+        return queryset
+
+
+class LeagueViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public league data comes only from FootyBrat's database.
+
+    This endpoint never calls API-Football; Celery is the only API-Football caller.
+    """
+
+    queryset = League.objects.all()
+    serializer_class = LeagueSerializer
+    lookup_field = "slug"
+
+
+class StandingViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public standing data comes only from FootyBrat's database.
+
+    This endpoint never calls API-Football; Celery is the only API-Football caller.
+    """
+
+    queryset = Standing.objects.select_related("league", "team").all()
+    serializer_class = StandingSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        league_slug = self.request.query_params.get("league")
+        season = self.request.query_params.get("season")
+
+        if league_slug:
+            queryset = queryset.filter(league__slug=league_slug)
+        if season:
+            queryset = queryset.filter(season=season)
+
+        return queryset
+
+
+class TeamViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public team data comes only from FootyBrat's database.
+
+    This endpoint never calls API-Football; Celery is the only API-Football caller.
+    """
+
+    queryset = Team.objects.all()
+    serializer_class = TeamSerializer
+    lookup_field = "slug"
 
 
 class LiveFixturesView(ListAPIView):
@@ -26,7 +109,6 @@ class LiveFixturesView(ListAPIView):
         except Exception:
             cached = None
         if cached is not None:
-            from rest_framework.response import Response
             return Response(cached)
 
         response = super().list(request, *args, **kwargs)

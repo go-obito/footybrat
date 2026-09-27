@@ -114,6 +114,26 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = "slug"
 
 
+class VideoPostViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public video data comes only from FootyBrat's database.
+    """
+
+    serializer_class = VideoPostSerializer
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        # Never call API-Football here; Celery is the only API-Football caller.
+        queryset = VideoPost.objects.select_related("category").filter(
+            published_at__isnull=False,
+            published_at__lte=timezone.now(),
+        )
+        category_slug = self.request.query_params.get("category")
+        if category_slug:
+            queryset = queryset.filter(category__slug=category_slug)
+        return queryset
+        
+
 class VideoPostListView(generics.ListAPIView):
     serializer_class = VideoPostSerializer
 
