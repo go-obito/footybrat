@@ -10,12 +10,12 @@ from .api import router
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
     path("api/", include("articles.urls")),
     path("api/", include("matches.urls")),
     path("api/", include("ticker.urls")),
     path("api/", include("newsletter.urls")),
     path("api/", include("accounts.urls")),
-    path("api/", include(router.urls)),
 ]
 
 if settings.DEBUG:
