@@ -140,10 +140,11 @@ CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
 
 REDIS_URL = env("REDIS_URL", default="redis://127.0.0.1:6379/0")
 REDIS_CHANNEL_URL = env("REDIS_CHANNEL_URL", default="redis://127.0.0.1:6379/2")
+REDIS_CACHE_URL = env("REDIS_CACHE_URL", default=REDIS_URL)
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_CACHE_URL", default="redis://127.0.0.1:6379/1"),
+        "LOCATION": REDIS_CACHE_URL,
     },
 }
 CHANNEL_LAYERS = {
@@ -185,13 +186,6 @@ CELERY_BEAT_SCHEDULE = {
         "task": "matches.tasks.sync_standings_task",
         "schedule": crontab(hour=6, minute=30),
     },
-}
-
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_URL"),
-    }
 }
 
 API_FOOTBALL_KEY = env("API_FOOTBALL_KEY", default="")

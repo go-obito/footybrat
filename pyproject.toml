@@ -17,4 +17,6 @@ dependencies = [
     "gunicorn>=23.0,<24.0",
     "channels[daphne]>=4.2,<5",
     "channels-redis>=4.2,<5",
+    "markdown>=3.7,<4.0",
+    "bleach>=6.2,<8.0",
 ]
