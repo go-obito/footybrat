@@ -22,7 +22,7 @@ class TickerEntryViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         # Never call API-Football here; Celery is the only API-Football caller.
-        return super().get_queryset()[:20]
+        return super().get_queryset()
 
 
 class TickerEntryListView(ListAPIView):
