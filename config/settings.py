@@ -167,13 +167,13 @@ CELERY_BEAT_SCHEDULE = {
     },
     "sync-daily-fixtures": {
         "task": "matches.tasks.sync_daily_fixtures_task",
-        # Run 10 minutes after the hour so it does not compete with the
-        # minute-based live-score task at the top of the hour.
+        # Run 10 minutes after the hour.
         "schedule": crontab(minute=10),
     },
     "sync-live-scores": {
         "task": "matches.tasks.sync_live_scores_task",
-        "schedule": 60.0,
+        # Run once every hour, as requested.
+        "schedule": 3600.0,
     },
     "sync-standings": {
         "task": "matches.tasks.sync_standings_task",
