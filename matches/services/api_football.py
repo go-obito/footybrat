@@ -47,21 +47,13 @@ def get_requests_used_today(category=None):
 
 
 def can_make_request(cost=1):
-    if cost < 0:
-        return False
-    used = get_requests_used_today()
-    return used is not None and used + cost <= _soft_request_limit()
+    """Compatibility helper; API-Football enforces the real quota."""
+    return cost >= 0
 
 
 def get_live_poll_budget(active_league_count):
-    used = get_requests_used_today()
-    fixtures_used = get_requests_used_today("fixtures")
-    standings_used = get_requests_used_today("standings")
-    if used is None or fixtures_used is None or standings_used is None:
-        return 0
-
-    reserved_daily_syncs = max(0, 2 * active_league_count - fixtures_used - standings_used)
-    return max(0, _soft_request_limit() - used - reserved_daily_syncs)
+    """Compatibility helper; no application-side live budget is enforced."""
+    return None
 
 
 def _record_api_request(category):
@@ -75,19 +67,16 @@ def _record_api_request(category):
     try:
         cache.add(total_key, initial_total, timeout=timeout)
         cache.add(category_key, 0, timeout=timeout)
-        total = cache.incr(total_key)
+        cache.incr(total_key)
         total_incremented = True
-        if total > _soft_request_limit():
-            cache.decr(total_key)
-            return False
         cache.incr(category_key)
     except Exception:
+        # Cache failures should never prevent an API request.
         try:
             if total_incremented:
                 cache.decr(total_key)
         except Exception:
             pass
-        return False
     return True
 
 
@@ -95,14 +84,16 @@ def _request(endpoint, *, category="other", **params):
     if not settings.API_FOOTBALL_KEY:
         raise ApiFootballError("API_FOOTBALL_KEY is not configured")
 
-    if not _record_api_request(category):
-        raise RequestBudgetExceeded("Daily API-Football request budget exhausted")
+    _record_api_request(category)
     if category == "live":
-        cache.set(
-            "api_live_last_request_at",
-            timezone.now().timestamp(),
-            timeout=_request_counter_timeout(),
-        )
+        try:
+            cache.set(
+                "api_live_last_request_at",
+                timezone.now().timestamp(),
+                timeout=_request_counter_timeout(),
+            )
+        except Exception:
+            pass
 
     try:
         response = requests.get(
