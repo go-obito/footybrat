@@ -1,5 +1,4 @@
 import logging
-from math import ceil
 from datetime import datetime, time, timedelta
 
 from celery import shared_task
@@ -98,36 +97,15 @@ def get_today_match_window(today=None):
     )
 
 
-def _live_poll_interval(now, window_end, active_league_count):
-    remaining_calls = api_football.get_live_poll_budget(active_league_count)
-    if remaining_calls <= 0:
-        return None
-    remaining_seconds = max(0, (window_end - now).total_seconds())
-    interval_for_remaining_calls = ceil(remaining_seconds / max(1, remaining_calls - 1))
-    return max(300, interval_for_remaining_calls)
-
-
 @shared_task
 def sync_daily_fixtures_task():
     league_ids = get_active_tracked_leagues()
     if not league_ids:
         return 0
 
-    if not api_football.can_make_request(cost=len(league_ids)):
-        logger.warning(
-            "Skipping daily fixture sync: need %s requests, budget usage is %s/%s",
-            len(league_ids),
-            api_football.get_requests_used_today(),
-            max(0, settings.DAILY_REQUEST_BUDGET - settings.DAILY_REQUEST_HEADROOM),
-        )
-        return 0
-
     items = []
     today = timezone.localdate()
     for league_id in league_ids:
-        if not api_football.can_make_request():
-            logger.warning("Skipping remaining daily fixture sync calls: daily budget exhausted")
-            return 0
         try:
             items.extend(
                 item
@@ -154,34 +132,9 @@ def sync_live_scores_task():
     if not league_ids:
         return 0
 
-    window = get_today_match_window()
-    if window is None:
-        return 0
-    window_start, window_end = window
     now = timezone.now()
-    if not window_start <= now <= window_end:
-        return 0
-
-    interval = _live_poll_interval(now, window_end, len(league_ids))
-    if interval is None or not api_football.can_make_request():
-        logger.warning("skipped live sync: daily budget exhausted")
-        return 0
 
     try:
-        if not cache.add("api_live_sync_lock", True, timeout=60):
-            return 0
-    except Exception:
-        logger.warning("skipped live sync: unable to acquire Redis lock")
-        return 0
-
-    try:
-        last_request_at = cache.get("api_live_last_request_at")
-        if last_request_at is not None and now.timestamp() - float(last_request_at) < interval:
-            return 0
-        if not api_football.can_make_request():
-            logger.warning("skipped live sync: daily budget exhausted")
-            return 0
-
         items = [
             item
             for item in api_football.fetch_live_fixtures(league_ids)
@@ -211,11 +164,6 @@ def sync_live_scores_task():
     except Exception:
         logger.exception("Live score sync failed unexpectedly")
         return 0
-    finally:
-        try:
-            cache.delete("api_live_sync_lock")
-        except Exception:
-            logger.warning("Unable to release live sync lock")
 
 
 @shared_task
@@ -225,19 +173,7 @@ def sync_standings_task():
     league_ids = get_active_tracked_leagues()
     if not league_ids:
         return 0
-    if not api_football.can_make_request(cost=len(league_ids)):
-        logger.warning(
-            "Skipping daily standings sync: need %s requests, budget usage is %s/%s",
-            len(league_ids),
-            api_football.get_requests_used_today(),
-            max(0, settings.DAILY_REQUEST_BUDGET - settings.DAILY_REQUEST_HEADROOM),
-        )
-        return 0
-
     for league_id in league_ids:
-        if not api_football.can_make_request():
-            logger.warning("Skipping remaining standings sync calls: daily budget exhausted")
-            return 0
         try:
             rows = api_football.fetch_standings(league_id, _current_season(league_id))
             if not rows:
