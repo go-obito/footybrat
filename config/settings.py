@@ -27,9 +27,14 @@ env = environ.Env(
 environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("SECRET_KEY")
+
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
+
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+
+# Application definition
 
 INSTALLED_APPS = [
     'daphne',
@@ -82,10 +87,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
 
+# Database
+
 DATABASES = {
     "default": env.db("DATABASE_URL")
 }
 
+
+# Password validation
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -98,19 +107,20 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
+
+# Internationalization
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+
+# Static files
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -203,6 +213,8 @@ REST_FRAMEWORK = {
     },
 }
 
+
+# Email
 
 MAILERS = {
     'default': {
