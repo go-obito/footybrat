@@ -117,8 +117,13 @@ def sync_daily_fixtures_task():
                 if int(item["league"]["external_id"]) == league_id
             )
         except api_football.ApiFootballError as exc:
-            logger.warning("Daily fixture sync failed for league %s: %s", league_id, exc)
-            return 0
+            # Do not discard successful fixture results for other leagues.
+            logger.warning(
+                "Daily fixture sync failed for league %s: %s",
+                league_id,
+                exc,
+            )
+            continue
 
     total = _sync_fixtures(items)
     if total:
