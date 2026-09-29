@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+import time as time_module
 
 import requests
 from django.conf import settings
@@ -95,17 +96,42 @@ def _request(endpoint, *, category="other", **params):
         except Exception:
             pass
 
-    try:
-        response = requests.get(
-            f"{settings.API_FOOTBALL_BASE_URL.rstrip('/')}/{endpoint.lstrip('/')}",
-            headers={"x-apisports-key": settings.API_FOOTBALL_KEY},
-            params=params,
-            timeout=10,
-        )
-        response.raise_for_status()
-        payload = response.json()
-    except (requests.RequestException, ValueError) as exc:
-        raise ApiFootballError(str(exc)) from exc
+    url = (
+        f"{settings.API_FOOTBALL_BASE_URL.rstrip('/')}/"
+        f"{endpoint.lstrip('/')}"
+    )
+    headers = {"x-apisports-key": settings.API_FOOTBALL_KEY}
+    last_error = None
+
+    # API-Football can occasionally take longer than 10 seconds to respond.
+    # Use a bounded retry so transient provider/network timeouts do not make
+    # the live-score task silently return zero on the first failed request.
+    for attempt in range(2):
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                params=params,
+                timeout=(5, 20),
+            )
+            response.raise_for_status()
+            payload = response.json()
+            break
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_error = exc
+            if attempt == 1:
+                raise ApiFootballError(
+                    f"API-Football request failed after retries: {exc}"
+                ) from exc
+            time_module.sleep(1.5 * (attempt + 1))
+        except requests.RequestException as exc:
+            raise ApiFootballError(str(exc)) from exc
+        except ValueError as exc:
+            raise ApiFootballError(
+                f"API-Football returned invalid JSON: {exc}"
+            ) from exc
+    else:
+        raise ApiFootballError(str(last_error))
 
     if payload.get("errors"):
         raise ApiFootballError(str(payload["errors"]))
