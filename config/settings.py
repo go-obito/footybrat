@@ -179,7 +179,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "sync-daily-fixtures": {
         "task": "matches.tasks.sync_daily_fixtures_task",
-        "schedule": crontab(hour=6, minute=0),
+        "schedule": 3600.0,
     },
     "sync-live-scores": {
         "task": "matches.tasks.sync_live_scores_task",
